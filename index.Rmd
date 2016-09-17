@@ -1,0 +1,32 @@
+---
+title: "Aldabra application server"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: yeti
+    logo: logo.png
+    css: index-style.css
+    orientation: columns
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+Environmental
+-------------------------------------
+
+### Environmental
+
+```{r}
+valueBox('tides', 
+         caption = 'Visualise aldabra tides, produce a tidal calendar, or download research grade predicted tidal heights',
+         icon = "ion-waterdrop", href="./aldabra_tides", color = '#ffffff')
+```
+
+
+Column
+-------------------------------------
+
+Column
+-------------------------------------
+    

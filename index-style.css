@@ -1,0 +1,22 @@
+.navbar-brand {
+  font-size: xx-large;
+  position: absolute;
+  top: 50%;
+  -webkit-transform: translateY(-50%);
+  -ms-transform: translateY(-50%);
+  transform: translateY(-50%);
+}
+
+.navbar-logo {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+body {
+  padding: 80px 0 0 8px; /* padding-top overridden by theme */
+}
+
+.value-box .value {
+    font-size: x-large;
+    font-weight: 300;
+}
