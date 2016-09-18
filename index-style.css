@@ -1,5 +1,6 @@
 .navbar-brand {
   font-size: xx-large;
+  width: 100%;
   position: absolute;
   top: 50%;
   -webkit-transform: translateY(-50%);
@@ -19,4 +20,18 @@ body {
 .value-box .value {
     font-size: x-large;
     font-weight: 300;
+}
+
+.about {
+	font-size: smaller;
+  position: absolute;
+  top: 95%;
+}
+
+.navbar-author {
+		position: absolute;
+    right: 10%;
+    transform: translateX(-90%);
+    margin-right: 10px;
+}
 }
