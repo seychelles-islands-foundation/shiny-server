@@ -425,7 +425,9 @@ dateRangeInput("DateRange_download", label = h4("Time Range"), start = Sys.Date(
 
 ```
 
-##### Save the calendar into a PDF:
+#### 
+
+##### Export tidal data into Excel:
 
 ```{r}
 
