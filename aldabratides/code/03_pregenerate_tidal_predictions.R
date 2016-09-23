@@ -13,7 +13,7 @@ load(file ="../data/processed/tide_models.rds")
 file.remove('../data/processed/tide_predictions.sqlite3')
 tide_pred <- src_sqlite('../data/processed/tide_predictions.sqlite3', create = T)
 # tide_pred <- dbConnect("SQLite", dbname='./data/processed/tide_predictions.sqlite3')
-indexes_tide <- list(c('year', 'month', 'day'), 'loc_id', 'date')
+indexes_tide <- list('loc_id', 'date')
 
 # predict water height for a time interval at a specified resolution
 predict_height <- function(dr, c_model, t_res = t_resolution){
@@ -45,19 +45,16 @@ for(x in length(tide_models)){
         h[1:(nrow(h)-1), ]
       }, .progress = 'text') %>% 
     	dplyr::select(-month) %>%
-    	dplyr::mutate(year = as.integer(lubridate::year(time)),
-    								month = as.integer(lubridate::month(time)),
-    								day = as.integer(lubridate::day(time)),
-    								date = as.integer(as.numeric(time)), 
-    								time_n = as.integer(as.numeric(difftime(time, trunc(time, 'day'), units = 'sec'))),
-    								loc_id = as.integer(x)) %>% 
-    	dplyr::select(-time)
+    	dplyr::mutate(date = as.integer(as.numeric(time)), 
+    								loc_id = as.integer(x)) 
     if (length(dbListTables(tide_pred$con))== 0) {
     	copy_to(tide_pred, 
-    					df = o, name = 'tide_prediction', temporary = FALSE,
+    					df = o %>%
+    						dplyr::filter((lubridate::minute(time) %% 10) == 0) %>% 
+    						dplyr::select(-time), name = 'tide_prediction', temporary = FALSE,
     					indexes = indexes_tide)
     	copy_to(tide_pred, 
-    					df = get_high_low_table(o), name = 'tide_high_low', temporary = FALSE,
+    					df = get_high_low_table(o) %>% dplyr::select(-time), name = 'tide_high_low', temporary = FALSE,
     					indexes = indexes_tide)
     } else {
     	tide_pred <- src_sqlite('../data/processed/tide_predictions.sqlite3', create = T)
@@ -68,3 +65,4 @@ for(x in length(tide_models)){
 }
   
 dbGetQuery(tide_pred$con, 'ANALYZE')
+dbDisconnect(tide_pred$con)

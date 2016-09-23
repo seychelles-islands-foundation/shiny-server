@@ -6,6 +6,7 @@ runtime: shiny
 output:
   flexdashboard::flex_dashboard:
     orientation: columns
+    css: tides_style.css
     theme: yeti
     vertical_layout: fill
 ---
@@ -41,11 +42,11 @@ selectInput("Loc", label = h3("Location"),
 dateRangeInput("DateRange", label = h4("Time Range"), start = Sys.Date(), end = Sys.Date(), min = NULL, max = NULL, format = "d MM", startview = "month", weekstart = 0, language = "en", separator = " to ")
 
 
-selectInput("TableInterval", label = h4("Table Interval"), 
-            choices = list("High/Low" = 0, "High only" = 1, "Low only" = -1, 
-                           "15 min" = 15, "30 min" = 30,
-                           "60 min" = 60), 
-            selected = 0)
+# selectInput("TableInterval", label = h4("Table Interval"), 
+#             choices = list("High/Low" = 0, "High only" = 1, "Low only" = -1, 
+#                            "15 min" = 15, "30 min" = 30,
+#                            "60 min" = 60), 
+#             selected = 0)
 
 ```
 
@@ -119,16 +120,9 @@ day_high_low <- reactive({
 
 # table
 out_table <- reactive({
-  h <- day_height()
-  int <- as.integer(input$TableInterval)
-  
-  if(int %in% -1:1){
+
     h <- day_high_low()
-    if (int == -1) {  # if only low tide
-      h %<>% dplyr::filter(h_l == 0)
-    } else if (int == 1) {  # if only high tide
-      h %<>% dplyr::filter(h_l == 1)
-    }
+
     h %>% 
       format_tide_table() %>%
       datatable(extensions = 'Buttons',
@@ -138,33 +132,6 @@ out_table <- reactive({
                 rownames = FALSE,
                 colnames = c('height [m]' = 'height')) %>%
       return()
-  } else{
-    chosen_times <- seq(dplyr::first(h$time), 
-                        dplyr::last(h$time), 
-                        by = paste(int, "min"))
-    h %>%
-      dplyr::filter(time %in% chosen_times) %>%
-      dplyr::mutate(date = format(time, "%d/%m/%y"),
-                    day = format(time, "%a"),
-                    time = format(time, "%I:%M %p"),
-                    height = round(height, 2)) %>%
-      dplyr::select(date, day, time, height) %>%
-      datatable(extensions = c('Scroller','Buttons'),
-                options = list(dom = 'Bt',
-                               buttons = c('copy', 'csv', 'pdf', 'print'),
-                               searching = FALSE,
-                               deferRender = FALSE,
-                               scrollY = 100,
-                               scroller = TRUE), 
-                rownames = FALSE,
-                colnames = c('height [m]' = 'height'))  %>%
-      formatStyle('height [m]',
-                  background = styleColorBar(iris$Petal.Length, '#DAE8EC'),
-                  backgroundSize = '100% 90%',
-                  backgroundRepeat = 'no-repeat',
-                  backgroundPosition = 'center') %>%
-      return()
-   }
   
 })
 
@@ -437,3 +404,57 @@ renderPlot({
 ```
 
 > Green and read areas indicate the times at which is safe or not to navigate over the reef crest
+
+
+download
+=======================================================================
+
+Options {.sidebar}
+-----------------------------------------------------------------------
+
+
+```{r inputs_download}
+selectInput("Loc", label = h3("Location"), 
+            choices = list("Picard, Research Station" = 1), 
+            selected = 1)
+
+
+dateRangeInput("DateRange_download", label = h4("Time Range"), start = Sys.Date(), end = Sys.Date(), min = NULL, max = NULL, format = "d MM", startview = "month", weekstart = 0, language = "en", separator = " to ")
+
+
+```
+
+##### Save the calendar into a PDF:
+
+```{r}
+
+downloadButton('downloadData', label = "Download Data")
+
+downloadHandler(filename = function() {
+  paste0("data", input$DateRange_download[1], "_", input$DateRange_download[2], ".xlsx")
+}, content = function (file){
+	 dr <- input$DateRange_download
+  l <- as.integer(input$Loc)
+
+  dr <- sort(dr)
+  dr[2] <- dr[2] + 1
+  dr[1] <- dr[1]
+  dr <- as.POSIXct(trunc(as.POSIXct(as.POSIXlt(as.POSIXct(dr), tz = "Indian/Mahe")), "days"))
+  dr[1] <- dr[1] - little_extra
+  dr[2] <- dr[2] + little_extra
+  
+  xlsx::write.xlsx(read_height(dr, l), file, sheetName = 'water_level')
+  xlsx::write.xlsx(format_tide_table(read_high_low(dr, l)), file, sheetName = 'high_low', append = T)
+
+})
+
+
+
+```
+
+Column 
+-----------------------------------------------------------------------
+
+<div class="excel">
+![](ssis-export-excel-file-task.png)
+</div>
