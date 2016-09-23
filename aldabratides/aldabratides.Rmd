@@ -337,7 +337,8 @@ calendar_plot <- reactive({
                   dow = factor(format(time, "%A"),
                                c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")),
                   date = time, 
-                  time = lubridate::hour(time) + lubridate::minute(time)/60) %>%
+                  time = lubridate::hour(time) + lubridate::minute(time)/60,
+  								month = lubridate::month(time)) %>%
     dplyr::slice(1:(nrow(tides)-1)) %>%
     dplyr::filter(week %in% unique(calendar$week)) %>%
     dplyr::mutate(this_month = as.Date(date) %in% calendar$date) %>%

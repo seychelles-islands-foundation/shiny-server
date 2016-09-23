@@ -43,9 +43,10 @@ for(x in length(tide_models)){
       plyr::ddply("month", function(z){
         h <- predict_height(c(z$ds, z$de), tide_models[[x]], t_res)
         h[1:(nrow(h)-1), ]
-      }, .progress = 'text') %>% 
+      }, .parallel = T) %>% 
     	dplyr::select(-month) %>%
     	dplyr::mutate(date = as.integer(as.numeric(time)), 
+    								year = as.integer(lubridate::year(time)),
     								loc_id = as.integer(x)) 
     if (length(dbListTables(tide_pred$con))== 0) {
     	copy_to(tide_pred, 
@@ -58,8 +59,10 @@ for(x in length(tide_models)){
     					indexes = indexes_tide)
     } else {
     	tide_pred <- src_sqlite('../data/processed/tide_predictions.sqlite3', create = T)
-    	dbWriteTable(tide_pred$con, 'tide_prediction', o, append = TRUE, row.names = F)
-    	dbWriteTable(tide_pred$con, 'tide_high_low', get_high_low_table(o), append = TRUE, row.names = F)
+    	dbWriteTable(tide_pred$con, 'tide_prediction', o %>%
+    							 	dplyr::filter((lubridate::minute(time) %% 10) == 0) %>% 
+    							 	dplyr::select(-time), append = TRUE, row.names = F)
+    	dbWriteTable(tide_pred$con, 'tide_high_low', get_high_low_table(o) %>% dplyr::select(-time), append = TRUE, row.names = F)
     }
   })
 }
