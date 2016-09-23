@@ -21,7 +21,7 @@ library(DT)
 
 tide_models_params <- readRDS("data/processed/tide_models_params.rds")
 source("dashboard_functions.R")
-tide <- dplyr::src_sqlite('./data/processed/tide_predictions.sqlite3')
+tide <- dplyr::src_sqlite('data/processed/tide_predictions.sqlite3')
 
 # local coordinates of Aldabra
 coords <- matrix(c(46.3, -9.4), nrow = 1)

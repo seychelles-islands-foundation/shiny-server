@@ -25,10 +25,10 @@ predict_height <- function(dr, c_model, t_res = t_resolution){
                   time = as.POSIXct(as.POSIXlt(time, tz = "Indian/Mahe")))
 }
 
-t_res <- 1  # resolution for predictions
+t_res <- as.integer(commandArgs(trailingOnly = T)[1])  # resolution for predictions
 
 # to make it more manegeable split it by month
-time_frame <- data.frame(ds = seq(as.POSIXct("1979-01-01 00:00:00", tz = "Indian/Mahe"),
+time_frame <- data.frame(ds = seq(as.POSIXct("1978-01-01 00:00:00", tz = "Indian/Mahe"),
                     as.POSIXct("2020-01-01 00:00:00", tz = "Indian/Mahe"), 
                     "month")) %>% 
   dplyr::mutate(de = dplyr::lead(ds),
@@ -67,3 +67,4 @@ for(x in length(tide_models)){
   })
 }
   
+dbGetQuery(tide_pred$con, 'ANALYZE')
