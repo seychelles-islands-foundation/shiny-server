@@ -1,0 +1,473 @@
+---
+title: "SIF Aldabra library catalog"
+runtime: shiny
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    css: aldabralibrary.css
+    theme: yeti
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(magrittr)
+library(xml2)
+library(httr)
+library(DT)
+library(shinyjs)
+library(RefManageR)
+library(foreach)
+
+fileserver_location <- readLines("./fileserver_location")
+
+if(file.exists("./path_to_db")) {
+	db_location <- readLines("./path_to_db")
+	path_to_db <- paste0(fileserver_location, db_location)
+} else {
+	db_location <- NULL
+}
+
+
+
+source('cutter.R')
+source('parse_person.R')
+
+fields <- c('author', 'format', 'hyr', 'lyr', 'owi', 'title')
+
+find_oclc <- function(author = NULL, 
+											title = NULL, 
+											isbn = NULL, 
+											issn = NULL,
+											owi = NULL, 
+											summary = 'true'){
+	httr::GET('http://classify.oclc.org/classify2/Classify',
+						query = list(author = author, 
+												 title = title, 
+												 isbn = isbn,
+												 issn = issn,
+												 owi = owi,
+												 summary = summary)) %>%
+		httr::content()
+}
+
+find_xisbn <- function(owi){
+	x <- paste0('http://xisbn.worldcat.org/webservices/xid/owi/', owi) %>%
+		httr::GET(query = list(method = 'getMetadata',
+													 format = 'xml',
+													 fl = 'isbn')) %>%
+		httr::content() %>%
+		xml_find_first(".//d1:oclcnum") %>%
+		xml_attr("isbn")
+	if (length(x) == 0) {
+		return(NA)
+	} else {
+		return(stringr::str_split(x, " ")[[1]][1])
+	}
+}
+
+
+full_query_to_df <- function(oo){
+	works <- lapply(fields, function(x){
+			xml_find_all(oo, ".//d1:work") %>% xml_attr(x) 
+		}) %>%
+			as.data.frame()
+		names(works) <- fields
+		works
+}
+
+get_cc <- function(x, type = 'lcc'){
+	x <- xml_find_all(x, paste0(".//d1:", type)) %>% 
+		xml_find_all(".//d1:mostPopular") %>%
+		xml_attr("sfa")
+	if (length(x) == 0) {
+		return(NA)
+	} else if (length(x) > 1){
+		x[grep("[^a-z]", x, ignore.case = T)][1]
+	} else {
+		return(x)
+	}
+}
+
+get_response_code <- function(x){
+	xml_find_all(x, ".//d1:response") %>% 
+		xml_attr("code") 
+}
+
+get_fast  <- function(x, type = 'lcc'){
+	x <- xml_find_all(x, paste0(".//d1:", "fast")) %>% 
+		xml_find_all(paste0(".//d1:", "heading")) %>%
+		xml_text() %>%
+		as.list() %>%
+		append(c(sep = "; ")) %>%
+		do.call(paste, .)
+	if (length(x) == 0) {
+		return(NA)
+	} else {
+		return(x)
+	}
+}
+```
+
+explore
+=======================================================================
+
+
+```{r}
+items <- reactive({
+		input$add
+	validate(
+		need(db_location, "The specified location for the database file containing the library records is not valid. Go to advanced > 'Location of the database file' and tell me where I can read an existing database or create a new one.")
+	)
+	
+	records <- dplyr::src_sqlite(db_location, create = TRUE)
+	
+	validate(
+		need("records" %in% dplyr::src_tbls(records), "The library has no items. Go ahead and add some :)")
+	)
+
+	items <- dplyr::tbl(records, "records") %>%
+		dplyr::collect()
+	
+	DBI::dbDisconnect(records$con)
+	items
+})
+
+renderDataTable({
+	items() %>%
+		dplyr::mutate(library_number = paste(lcc, cutter_author, cutter_title, sep = ".")) %>%
+		dplyr::rename(topics = fast) %>%
+		dplyr::select(author, title, topics, isbn, library_number) %>%
+		DT::datatable(style = "bootstrap", fillContainer = TRUE, 
+									options = list(dom ="ftip"))	
+})
+```
+
+
+add items
+=======================================================================
+
+Options {.sidebar data-width=300}
+-----------------------------------------------------------------------
+
+```{r}
+library(shinyjs)
+
+useShinyjs(rmd = TRUE)
+
+textInput('inTitle', 'Title', value = NULL)
+textInput('inAuthor', 'Author', value = NULL)
+selectInput("inYear", "Year", c("Choose one" = '', 1800:lubridate::year(Sys.Date())),
+						selected = NULL)
+# textInput('inEdition', 'Year of first edition', value = NULL)
+textInput('inISBN', 'ISBN', value = NULL)
+# textInput('inISSN', 'ISSN', value = NULL)
+textInput('inLCC', 'Library of Congress Classification Number', value = NULL)
+
+actionButton('search', 'Search', width = '50%')
+actionButton('clear', 'Clear form', width = '50%')
+br()
+br()
+actionButton('add', 'Add to library', width = '100%')
+
+get_table <- eventReactive(input$search, {
+	withProgress({
+		find_oclc(author = input$inAuthor, 
+							title = input$inTitle, 
+							isbn = input$inISBN) %>%
+		full_query_to_df()
+	}, message = "Consulting library catalogs")
+		
+})
+
+
+output$NA_lcc_message <- renderUI({
+	input$inLCC
+	if(grepl('NA', input$inLCC)) {
+		h6(strong("Warning: "), "I was unable to generate a complete LCC classification number. Before you add it to the collection, replace the 'NA' characters in the classification field, by the library of congress subject number. Use", strong(a("this table", href = "http://www.questionpoint.org/crs/html/help/zs/ask/ask_map_lcctoddc.html", target = "_blank")) ,", the DCC number, and ", strong(a("this page", href = "https://www.loc.gov/catdir/cpso/lcco/", target = "_blank")), " as a guide.") %>% return()
+	}
+})
+
+output$duplicated_item <- renderUI({
+	if(input$inLCC %in% items()$number){
+		h6(strong("Warning: "), "This item is already in the library and the library classification number needs to be unique. You can add a digit to make it different.") %>% return()
+	}
+})
+
+output$message_max <- renderUI({
+	n_obs <- get_table() %>% nrow()
+	if(n_obs == 25) {
+		h6(strong("Attention: "), "I found quite a lot of entries, try to narrow down the search")
+		}
+	})
+
+output$book_details <- renderUI({
+	if(stringr::str_detect(as.character(get_record()$author), "\\|")){
+		pattern <- "^.*?(?=\\|)"
+	} else {
+		pattern <- ".+"
+	}
+	list(
+		h6(em(as.character(get_record()$title)), "by", 
+			 em(stringr::str_extract(as.character(get_record()$author), pattern)),
+			 " — ", "Topics: ", as.character(get_record()$fast), 
+			 " — ", "DDC: ", as.character(get_record()$ddc)
+			 )
+	)
+})
+
+# uiOutput('NA_lcc_message')
+# uiOutput('message_max')
+
+# renderPrint(input$full_table_rows_selected)
+# renderPrint(input$search)
+# renderPrint(input$clear)
+```
+
+
+Row {data-height = 350}
+-----------------------------------------------------------------------
+
+###
+
+```{r}
+renderValueBox(uiOutput('NA_lcc_message'))
+renderValueBox(uiOutput("duplicated_item"))
+renderValueBox(uiOutput('message_max'))
+renderValueBox(uiOutput("book_details"))
+
+```
+
+
+Row {data-height = 650}
+-----------------------------------------------------------------------
+
+###
+
+```{r}
+
+DT::dataTableOutput("full_table")
+
+output$full_table <- DT::renderDataTable({
+			get_table() %>%
+			dplyr::filter(format != 'eBook',
+										format != 'eAudiobook') %>%
+				dplyr::select(author, title, lyr, hyr, format) %>%
+				datatable(options = list(
+					pageLength = 25, 
+					# scroller = TRUE,
+					# deferRender = TRUE,
+					# scrollY = "50%",
+					paging = FALSE,
+					binfo = FALSE,
+					dom = "t",
+					columnDefs = list(list(
+						targets = c(0,1),
+						render = JS(
+							"function(data, type, row, meta) {",
+							"return type === 'display' && data.length > 111 ?",
+							"'<span title=\"' + data + '\">' + data.substr(0, 111) + '...</span>' : data;",
+							"}")
+					))),
+					rownames = F, 
+					selection = 'single', 
+					style = "bootstrap", 
+					filter = "none", 
+					fillContainer = TRUE)
+})
+
+
+get_record <- eventReactive(input$full_table_rows_selected, {
+	withProgress({
+		this <- get_table() %>%
+			dplyr::filter(format != 'eBook',
+										format != 'eAudiobook') %>%
+			dplyr::slice(input$full_table_rows_selected)
+		this_owi <- this %$% owi 
+		
+		# download xml data
+		o <- find_oclc(owi = this_owi, summary = 'false')
+		
+		get_table()  %>%
+			dplyr::filter(format != 'eBook',
+										format != 'eAudiobook') %>%
+			dplyr::slice(input$full_table_rows_selected) %>%
+			dplyr::mutate(lcc = gsub("\\..*$", "", get_cc(o)),
+										ddc = get_cc(o, 'ddc'),
+										isbn = find_xisbn(this_owi), 
+										fast = get_fast(o)) %>%
+			# dplyr::rowwise() %>%
+			dplyr::mutate(cutter_author = substr(get_cutter(author),1, 4),
+										cutter_title = substr(get_cutter(title),1, 3))
+		
+	}, message = 'looking for detailed records')
+})
+
+
+observeEvent(get_record(),{
+	updateTextInput(session, 'inTitle', value = as.character(get_record()$title))
+	updateTextInput(session, 'inAuthor', value = as.character(get_record()$author))
+	updateTextInput(session, 'inISBN', value = as.character(get_record()$isbn))
+	updateSelectInput(session, 'inYear',
+										choices = as.numeric(as.character(get_record()$lyr)):as.numeric(as.character(get_record()$hyr)),
+										selected = as.numeric(as.character(get_record()$lyr)))
+	updateTextInput(session, 'inLCC', value = paste(
+		as.character(get_record()$lcc), 
+		as.character(get_record()$cutter_author),
+		as.character(get_record()$cutter_title), sep = "."))
+})
+
+observeEvent(input$clear, {
+	reset('inTitle') 
+	reset('inAuthor') 
+	reset('inYear')
+	reset('inISBN')
+	reset('inLCC') 
+})
+
+ready_to_add <- reactive(
+	all(
+		# !grepl("NA", input$inLCC),
+		input$inTitle != '',
+		input$inAuthor != '',
+		input$inYear != '',
+		input$inLCC != '', 
+		!(input$inLCC %in% items()$number),
+		!grepl('NA', input$inLCC)
+		)
+)
+
+observe(
+	toggleState('add', condition = ready_to_add())
+)
+
+observeEvent(input$add, {
+	records <- dplyr::src_sqlite(db_location, create = TRUE)
+	items()
+	item <- get_record() %>%
+			dplyr::mutate(number = input$inLCC,
+						 year = input$inYear)
+	if (length(DBI::dbListTables(records$con))== 0) {
+		dplyr::copy_to(records, item, name = "records", temporary = FALSE)
+	} else {
+		DBI::dbWriteTable(records$con, 'records', item, append = TRUE, row.names = F)
+	}
+	DBI::dbDisconnect(records$con)
+})
+```
+
+
+advanced {vertical_layout=scroll}
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### 
+
+```{r}
+
+valueBox("Excel", caption = downloadLink("excel_file", "Download a list of all books in the library"), icon = "fa-file-excel-o")
+
+output$excel_file <- downloadHandler(
+	filename = function() {
+		paste0("Aldabra-library_", Sys.Date(), ".csv")
+	}, 
+	content = function(file){
+		# records <- dplyr::src_sqlite(db_location, create = TRUE)
+		# 
+		# validate(
+		# 	need("records" %in% dplyr::src_tbls(records), "The library has no items. Go ahead and add some :)")
+		# )
+		# 
+		# items <- dplyr::tbl(records, "records") %>%
+		# 	dplyr::collect()
+		# 
+		# DBI::dbDisconnect(records$con)
+		
+	items() %>%
+		dplyr::mutate(number = paste(lcc, cutter_author, cutter_title, sep = ".")) %>%
+		dplyr::rename(topics = fast) %>%
+		# dplyr::select(author, title, topics, number) %>%
+		write.csv(file)	
+	}
+)
+
+```
+
+
+### 
+
+```{r}
+valueBox("Zotero", downloadLink("zotero_file", "Download a .bib file which can be used to import the library into Zotero"), icon = "fa-book")
+
+output$zotero_file <- downloadHandler(
+	filename = function() {
+		paste0("Aldabra-library_", Sys.Date(), ".bib")
+	}, 
+	content = function(file){
+			records <- dplyr::src_sqlite(db_location, create = TRUE)
+	
+	validate(
+		need("records" %in% dplyr::src_tbls(records), "The library has no items. Go ahead and add some :)")
+	)
+
+	items <- dplyr::tbl(records, "records") %>%
+		dplyr::collect()
+	
+	DBI::dbDisconnect(records$con)
+	
+	items %<>%
+		dplyr::mutate(number = paste(lcc, cutter_author, cutter_title, sep = ".")) %>%
+		dplyr::rename(topics = fast)
+	
+	foreach(i=1:nrow(items)) %do%{
+		if(items$format[i] == "Thesis/dissertation") {
+			items$format[i] <- "PhdThesis"
+		} else if(!(items$format[i] %in% c("Book", "Article"))) {
+			items$format[i] <- "Misc"
+		}
+		BibEntry(items$format[i], 
+						 title = items$title[i],
+						 author = parse_person(items$author[i], "Author"), 
+						 date = items$year[i],
+						 editor = parse_person(items$author[i], "Editor"), 
+						 isbn = items$isbn[i])
+	} %>% 
+		toBiblatex() %>%
+		writeLines(file)
+	}
+)
+```
+
+Row
+-----------------------------------------------------------------------
+
+
+### Location of the database file
+
+```{r}
+
+
+
+
+
+textInput("dbLocation", "", width = "100%", value = db_location)
+actionButton("changeDBlocation", "Update and reload")
+
+observeEvent(input$changeDBlocation, {
+	if(file.exists("./path_to_db")){
+		file.remove("./path_to_db")
+	} 
+	file.create("./path_to_db")
+	writeLines(input$dbLocation, "./path_to_db")
+	session$reload()
+})
+
+
+
+```
+
+> sadasdas asdasd asdasd 
+

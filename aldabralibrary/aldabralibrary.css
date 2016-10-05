@@ -1,0 +1,35 @@
+.value-box .value {
+	white-space: normal;
+}
+
+.bg-primary {
+	background-color: rgb(0, 140, 186);
+	color: white;
+}
+
+#location-of-the-database-file label {
+    display: block;
+}
+
+.value-box .icon i {
+		color: #006687;
+    color: rgba(0, 0, 0, 0.25);
+}
+
+
+.value-box a {
+    color: #FFF;
+    text-decoration: underline;
+}
+
+
+
+.dataTables_filter input {
+    width: 300px !important;
+}
+
+
+.dataTables_filter {
+    text-align: center !important;
+}
+
