@@ -176,7 +176,9 @@ get_table <- eventReactive(input$search, {
 		find_oclc(author = input$inAuthor, 
 							title = input$inTitle, 
 							isbn = input$inISBN) %>%
-		full_query_to_df()
+		full_query_to_df() %>%
+			dplyr::mutate(lyr = replace(lyr, is.na(lyr), 1800), 
+										hyr = replace(hyr, is.na(hyr), lubridate::year(Sys.Date())))
 	}, message = "Consulting library catalogs")
 		
 })
@@ -258,7 +260,7 @@ output$full_table <- DT::renderDataTable({
 			get_table() %>%
 			dplyr::filter(format != 'eBook',
 										format != 'eAudiobook') %>%
-				dplyr::select(author, title, lyr, hyr, format) %>%
+				dplyr::select(author, title, format) %>%
 				datatable(options = list(
 					pageLength = 25, 
 					# scroller = TRUE,
