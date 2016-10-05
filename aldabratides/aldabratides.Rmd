@@ -1,7 +1,5 @@
 ---
 title: "SIF Aldabra tidal predictions"
-resource_files:
-- data/processed/tide_pred/loc_1/2016.rds
 runtime: shiny
 output:
   flexdashboard::flex_dashboard:
@@ -222,7 +220,7 @@ gauge(round(cur_ti$height[2], 2),
 tide_text <- reactive({
   cur_ti <- current_tide() %>%
     dplyr::mutate(h_l = mapvalues(h_l, c(TRUE, FALSE), c("high", "low")),
-                  time = format(time, "%I:%M %p"))
+                  time = as.character(format(time, "%I:%M %p")))
   
   paste("last", cur_ti$h_l[1], "tide was at", cur_ti$time[1], "and the next",
         cur_ti$h_l[3], "tide will be at", cur_ti$time[3])
