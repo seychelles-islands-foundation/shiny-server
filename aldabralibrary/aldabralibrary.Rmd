@@ -26,7 +26,7 @@ if(file.exists("./path_to_db")) {
 	db_location <- readLines("./path_to_db")
 	path_to_db <- paste0(fileserver_location, db_location)
 } else {
-	db_location <- NULL
+	path_to_db <- NULL
 }
 
 
@@ -57,7 +57,7 @@ find_xisbn <- function(owi){
 		httr::GET(query = list(method = 'getMetadata',
 													 format = 'xml',
 													 fl = 'isbn')) %>%
-		httr::content() %>%
+		httr::content() %>% 
 		xml_find_first(".//d1:oclcnum") %>%
 		xml_attr("isbn")
 	if (length(x) == 0) {
@@ -118,10 +118,10 @@ explore
 items <- reactive({
 		input$add
 	validate(
-		need(db_location, "The specified location for the database file containing the library records is not valid. Go to advanced > 'Location of the database file' and tell me where I can read an existing database or create a new one.")
+		need(path_to_db, "The specified location for the database file containing the library records is not valid. Go to advanced > 'Location of the database file' and tell me where I can read an existing database or create a new one.")
 	)
 	
-	records <- dplyr::src_sqlite(db_location, create = TRUE)
+	records <- dplyr::src_sqlite(path_to_db, create = TRUE)
 	
 	validate(
 		need("records" %in% dplyr::src_tbls(records), "The library has no items. Go ahead and add some :)")
@@ -136,7 +136,7 @@ items <- reactive({
 
 renderDataTable({
 	items() %>%
-		dplyr::mutate(library_number = paste(lcc, cutter_author, cutter_title, sep = ".")) %>%
+		dplyr::mutate(library_number = number) %>%
 		dplyr::rename(topics = fast) %>%
 		dplyr::select(author, title, topics, isbn, library_number) %>%
 		DT::datatable(style = "bootstrap", fillContainer = TRUE, 
@@ -223,6 +223,11 @@ output$book_details <- renderUI({
 # renderPrint(input$full_table_rows_selected)
 # renderPrint(input$search)
 # renderPrint(input$clear)
+
+# renderPrint({
+#   records <- dplyr::src_sqlite(path_to_db, create = TRUE)
+#   length(DBI::dbListTables(records$con))
+#   })
 ```
 
 
@@ -343,8 +348,7 @@ observe(
 )
 
 observeEvent(input$add, {
-	records <- dplyr::src_sqlite(db_location, create = TRUE)
-	items()
+	records <- dplyr::src_sqlite(path_to_db, create = TRUE)
 	item <- get_record() %>%
 			dplyr::mutate(number = input$inLCC,
 						 year = input$inYear)
@@ -354,7 +358,13 @@ observeEvent(input$add, {
 		DBI::dbWriteTable(records$con, 'records', item, append = TRUE, row.names = F)
 	}
 	DBI::dbDisconnect(records$con)
+	reset('inTitle') 
+	reset('inAuthor') 
+	reset('inYear')
+	reset('inISBN')
+	reset('inLCC') 
 })
+
 ```
 
 
@@ -407,7 +417,7 @@ output$zotero_file <- downloadHandler(
 		paste0("Aldabra-library_", Sys.Date(), ".bib")
 	}, 
 	content = function(file){
-			records <- dplyr::src_sqlite(db_location, create = TRUE)
+			records <- dplyr::src_sqlite(path_to_db, create = TRUE)
 	
 	validate(
 		need("records" %in% dplyr::src_tbls(records), "The library has no items. Go ahead and add some :)")
@@ -447,11 +457,9 @@ Row
 
 ### Location of the database file
 
+**Important** — Only modify this if you know what you are doing. For example if you are re-organising the files in the server.
+
 ```{r}
-
-
-
-
 
 textInput("dbLocation", "", width = "100%", value = db_location)
 actionButton("changeDBlocation", "Update and reload")
