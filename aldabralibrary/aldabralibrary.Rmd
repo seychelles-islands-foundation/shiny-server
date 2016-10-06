@@ -34,7 +34,6 @@ if(file.exists("./path_to_db")) {
 source('cutter.R')
 source('parse_person.R')
 
-fields <- c('author', 'format', 'hyr', 'lyr', 'owi', 'title')
 
 find_oclc <- function(author = NULL, 
 											title = NULL, 
@@ -67,6 +66,7 @@ find_xisbn <- function(owi){
 	}
 }
 
+fields <- c('author', 'format', 'hyr', 'lyr', 'owi', 'title')
 
 full_query_to_df <- function(oo){
 	works <- lapply(fields, function(x){
@@ -108,15 +108,78 @@ get_fast  <- function(x, type = 'lcc'){
 		return(x)
 	}
 }
+
+values <- reactiveValues(update_item_table = 0)
 ```
 
 explore
 =======================================================================
 
+Options {.sidebar data-width=300}
+-----------------------------------------------------------------------
 
 ```{r}
+br()
+get_record_explore <- reactive({
+  validate(
+    need(input$explore_table_rows_selected, "Select an item to view details")
+  )
+  
+  items() %>%
+    dplyr::slice(input$explore_table_rows_selected)
+})
+
+output$book_details_explore <- renderUI({
+	if(stringr::str_detect(as.character(get_record_explore()$author), "\\|")){
+		pattern <- "^.*?(?=\\|)"
+	} else {
+		pattern <- ".+"
+	}
+	list(
+	  h4("Title:"),
+	  h5(as.character(get_record_explore()$title)),
+	  h4("Author:"),
+	  h5(stringr::str_extract(as.character(get_record_explore()$author), pattern)),
+	  h4("Year:"),
+	  h5(as.character(get_record_explore()$year)),
+	  h4("Library number:"),
+	  h5(as.character(get_record_explore()$number)),
+	  h4("ISBN:"),
+	  h5(as.character(get_record_explore()$isbn)),
+	  h4("Topics:"),
+	  h5(as.character(get_record_explore()$fast))
+	)
+})
+
+uiOutput('book_details_explore')
+
+div(a <- actionButton("deleteEntry", "Delete", width = "100%", onclick = "val=confirm('Are you sure?');
+          Shiny.onInputChange('confirm', val);"), class = "buttons-low")
+
+observe(
+	toggleState('deleteEntry', condition = !is.null(input$explore_table_rows_selected))
+) 
+
+observeEvent(input$deleteEntry,{
+  if(input$confirm){
+      records <- dplyr::src_sqlite(path_to_db, create = TRUE)
+  this_number <- as.character(get_record_explore()$number)
+  statement <- paste0("DELETE FROM records WHERE number='",
+                      this_number, "'")
+  message(statement)
+  DBI::dbExecute(records$con, statement)
+  values$update_item_table <- values$update_item_table + 1
+  }
+})
+```
+
+Row
+-----------------------------------------------------------------------
+
+###
+```{r}
 items <- reactive({
-		input$add
+  values$update_item_table
 	validate(
 		need(path_to_db, "The specified location for the database file containing the library records is not valid. Go to advanced > 'Location of the database file' and tell me where I can read an existing database or create a new one.")
 	)
@@ -134,12 +197,22 @@ items <- reactive({
 	items
 })
 
-renderDataTable({
+DT::dataTableOutput("explore_table")
+
+output$explore_table <- renderDataTable({
 	items() %>%
-		dplyr::mutate(library_number = number) %>%
+		dplyr::mutate(library_number = number,
+		              date_added = as.POSIXct(date_added)) %>%
+    dplyr::arrange(dplyr::desc(date_added)) %>%
 		dplyr::rename(topics = fast) %>%
-		dplyr::select(author, title, topics, isbn, library_number) %>%
-		DT::datatable(style = "bootstrap", fillContainer = TRUE, 
+		dplyr::select(author, 
+		              title, 
+		              # topics, 
+		              # isbn,
+		              library_number) %>%
+		DT::datatable(style = "bootstrap", 
+		              fillContainer = TRUE, 
+		              selection = 'single', 
 									options = list(dom ="ftip"))	
 })
 ```
@@ -177,8 +250,12 @@ get_table <- eventReactive(input$search, {
 							title = input$inTitle, 
 							isbn = input$inISBN) %>%
 		full_query_to_df() %>%
+	    dplyr::mutate(lyr = as.numeric(as.character(lyr)),
+	                  hyr = as.numeric(as.character(lyr))) %>%
 			dplyr::mutate(lyr = replace(lyr, is.na(lyr), 1800), 
-										hyr = replace(hyr, is.na(hyr), lubridate::year(Sys.Date())))
+										hyr = replace(hyr, is.na(hyr), lubridate::year(Sys.Date()))) %>%
+	      dplyr::mutate(author = as.character(author),
+	                    author = replace(author, is.na(author), "---")) 
 	}, message = "Consulting library catalogs")
 		
 })
@@ -219,17 +296,6 @@ output$book_details <- renderUI({
 	)
 })
 
-# uiOutput('NA_lcc_message')
-# uiOutput('message_max')
-
-# renderPrint(input$full_table_rows_selected)
-# renderPrint(input$search)
-# renderPrint(input$clear)
-
-# renderPrint({
-#   records <- dplyr::src_sqlite(path_to_db, create = TRUE)
-#   length(DBI::dbListTables(records$con))
-#   })
 ```
 
 
@@ -257,39 +323,41 @@ Row {data-height = 650}
 DT::dataTableOutput("full_table")
 
 output$full_table <- DT::renderDataTable({
-			get_table() %>%
-			dplyr::filter(format != 'eBook',
-										format != 'eAudiobook') %>%
-				dplyr::select(author, title, format) %>%
-				datatable(options = list(
-					pageLength = 25, 
-					# scroller = TRUE,
-					# deferRender = TRUE,
-					# scrollY = "50%",
-					paging = FALSE,
-					binfo = FALSE,
-					dom = "t",
-					columnDefs = list(list(
-						targets = c(0,1),
-						render = JS(
-							"function(data, type, row, meta) {",
-							"return type === 'display' && data.length > 111 ?",
-							"'<span title=\"' + data + '\">' + data.substr(0, 111) + '...</span>' : data;",
-							"}")
-					))),
-					rownames = F, 
-					selection = 'single', 
-					style = "bootstrap", 
-					filter = "none", 
-					fillContainer = TRUE)
+  get_table() %>%
+    # dplyr::filter(format != 'eBook',
+    # 							format != 'eAudiobook') %>%
+    dplyr::select(author, title, format) %>%
+    datatable(options = list(
+      pageLength = 25, 
+      # scroller = TRUE,
+      # deferRender = TRUE,
+      # scrollY = "50%",
+      paging = FALSE,
+      binfo = FALSE,
+      dom = "t" #,
+      # columnDefs = list(list(
+      #   targets = c(0,1),
+      #   render = JS(
+      #     "function(data, type, row, meta) {",
+      #     "return type === 'display' && data.length > 111 ?",
+      #     # "'<span title=\"' + data + '\">' + data.substr(0, 111) + '...</span>' : data;",
+      #     "}")
+      # )
+      # )
+      ),
+      rownames = F, 
+      selection = 'single', 
+      style = "bootstrap", 
+      filter = "none", 
+      fillContainer = TRUE)
 })
 
 
 get_record <- eventReactive(input$full_table_rows_selected, {
 	withProgress({
 		this <- get_table() %>%
-			dplyr::filter(format != 'eBook',
-										format != 'eAudiobook') %>%
+			# dplyr::filter(format != 'eBook',
+			# 							format != 'eAudiobook') %>%
 			dplyr::slice(input$full_table_rows_selected)
 		this_owi <- this %$% owi 
 		
@@ -297,8 +365,8 @@ get_record <- eventReactive(input$full_table_rows_selected, {
 		o <- find_oclc(owi = this_owi, summary = 'false')
 		
 		get_table()  %>%
-			dplyr::filter(format != 'eBook',
-										format != 'eAudiobook') %>%
+			# dplyr::filter(format != 'eBook',
+			# 							format != 'eAudiobook') %>%
 			dplyr::slice(input$full_table_rows_selected) %>%
 			dplyr::mutate(lcc = gsub("\\..*$", "", get_cc(o)),
 										ddc = get_cc(o, 'ddc'),
@@ -353,7 +421,8 @@ observeEvent(input$add, {
 	records <- dplyr::src_sqlite(path_to_db, create = TRUE)
 	item <- get_record() %>%
 			dplyr::mutate(number = input$inLCC,
-						 year = input$inYear)
+						 year = input$inYear, 
+						 date_added = as.character(Sys.time()))
 	if (length(DBI::dbListTables(records$con))== 0) {
 		dplyr::copy_to(records, item, name = "records", temporary = FALSE)
 	} else {
@@ -365,6 +434,7 @@ observeEvent(input$add, {
 	reset('inYear')
 	reset('inISBN')
 	reset('inLCC') 
+	values$update_item_table <- values$update_item_table + 1
 })
 
 ```

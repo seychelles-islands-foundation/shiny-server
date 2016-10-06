@@ -33,3 +33,14 @@
     text-align: center !important;
 }
 
+.buttons-low {
+    position: absolute;
+    bottom: 0;
+    margin-bottom: 10px;
+    margin-right: 10px;
+    width: 93%;
+}
+
+.dataTables_info {
+    font-size: smaller;
+}
