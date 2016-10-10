@@ -200,7 +200,7 @@ renderGauge({
   cur_ti <- current_tide()
 
   if(cur_ti$height[1] < cur_ti$height[3]){
-  water_is <- "→ raising →"
+  water_is <- "→ rising →"
 } else {
   water_is <- "← falling ←" 
 }
