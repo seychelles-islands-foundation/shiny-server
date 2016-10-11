@@ -268,7 +268,7 @@ get_table <- eventReactive(input$search, {
 output$NA_lcc_message <- renderUI({
 	input$inLCC
 	if(grepl('NA', input$inLCC)) {
-		h6(strong("Warning: "), "I was unable to generate a complete LCC classification number. Before you add it to the collection, replace the 'NA' characters in the classification field, by the library of congress subject number. Use", strong(a("this table", href = "http://www.questionpoint.org/crs/html/help/zs/ask/ask_map_lcctoddc.html", target = "_blank")) ,", the DCC number, and ", strong(a("this page", href = "https://www.loc.gov/catdir/cpso/lcco/", target = "_blank")), " as a guide.") %>% return()
+		h6(strong("Warning: "), "I was unable to generate a complete LCC classification number. Before you add it to the collection, replace the 'NA' characters in the classification field, by the library of congress subject number. Use", strong(a("this table", href = "http://www.questionpoint.org/crs/html/help/zs/ask/ask_map_lcctoddc.html", target = "_blank")) ,", the Dewey number, and ", strong(a("this page", href = "https://www.loc.gov/catdir/cpso/lcco/", target = "_blank")), " as a guide.") %>% return()
 	}
 })
 
@@ -295,9 +295,22 @@ output$book_details <- renderUI({
 		h6(em(as.character(get_record()$title)), "by", 
 			 em(stringr::str_extract(as.character(get_record()$author), pattern)),
 			 " — ", "Topics: ", as.character(get_record()$fast), 
-			 " — ", "DDC: ", as.character(get_record()$ddc)
+			 " — ", "Dewey: ", as.character(get_record()$ddc)
 			 )
 	)
+})
+
+output$initial_suggestion <- renderUI({
+	if(input$add == 0){
+	  list(
+	    h6(
+	      strong("Attention: "),
+	      "Check the",
+	      a("instructions", href = "#instructions"),
+	      "If it's the first time you add an item or you are unsure how to proceed"
+	    )
+	  )
+	}
 })
 
 # renderPrint(is.null(input$full_table_rows_selected))
@@ -310,6 +323,7 @@ Row {data-height = 350}
 ###
 
 ```{r}
+renderValueBox(uiOutput("initial_suggestion"))
 renderValueBox(uiOutput('NA_lcc_message'))
 renderValueBox(uiOutput("duplicated_item"))
 renderValueBox(uiOutput('message_max'))
@@ -467,6 +481,47 @@ observeEvent(input$add, {
 
 ```
 
+instructions {data-orientation=rows}
+=======================================================================
+
+## Column 
+
+### {data-width=800}
+
+<div style="font-weight: lighter;">
+
+Two process are central to managing a library catalog: 1) Each item must have accurate details (author, title, year, [ISBN](https://en.wikipedia.org/wiki/International_Standard_Book_Number), etc) and 2) each item must have an classification number that allows to both uniquely identify the item and to organize the items within appropriate subjects 
+
+This app makes these two processes easier by finding the details of a book and generating the classification number. It achieves it by trying to find the book in the public databases of the [Online Computer Library Center](https://www.oclc.org/home.en.html), and [WorldCat](https://www.worldcat.org/), effectively checking for similar items in more than 72,000 libraries in 170 countries. However sometimes it wont be able to find the book or it's classification number in another library and it's important you understand how it works. 
+
+Currently there are two major universal [classification systems](https://en.wikipedia.org/wiki/Library_classification) in use: the [Dewey Decimal](https://en.wikipedia.org/wiki/Dewey_Decimal_Classification) and [Library of Congress](https://en.wikipedia.org/wiki/Library_of_Congress_Classification) (LCC). Although in small academic libraries Dewey is most commonly used, here we use the Library of Congress Classification system because, as opposed to Dewey, the classification codes are freely available and hence it is easier to generate classification codes for items not previously classified in other libraries.
+
+An LCC classification number is composed of four parts: the subject code, the author code, the title code and optionally the volume or copy id. For example the code for "Advances in marine biology Volume 10" by "Russell, Frederick" is **QH91.R877.A38 V10**. The first letter **QH91** indicates that the subject of the book is Science > natural history/biology > General. **R877** is the author [cutter expansive classification](https://en.wikipedia.org/wiki/Cutter_Expansive_Classification). It  starts with R (for Russell) and continues assigning three digits [which depend on the following letters in the name](http://anjackson.net/zombse/062013%20Libraries%20&%20Information%20Science/static/questions/1034.html). You don't have to know these rules, as the code can be generated using the text box on the right. Then, the title code is **A38** which just as the author code starts with the first letter of the title, A, but then has two digits instead of three. Finally, if the item has several volumes or there are several copies you add that info at the end V10 for Volume 10 and C2 if it were the second copy of the book. If there is just one copy or just one volume, you don't have to add anything.
+
+When you search for an item the app will return the most common classification number used in libraries elsewhere. But the code is not written in stone. The same book can have different numbers in different libraries. For instance a book entitled "The Physiology and Medicine of Diving" could be in the subject RC1005 for "submarine medicine" or GV840 for "water-sports > diving". It is important that when you add a new item, check that the classification number makes the most sense for Aldabra's library.
+
+Sometimes, the app will be able to find the item in other libraries, but it won't be able to find the classification number. In those instances, it will show you the Dewey number which you can use in a [Dewey-LCC conversion table](http://www.questionpoint.org/crs/html/help/zs/ask/ask_map_lcctoddc.html) to find the first two letters of the Library of Congress subject code. Then you can find the category in the [classification outline](https://www.loc.gov/catdir/cpso/lcco/) to find the whole code. Nevertheless sometimes is easier to use the same category as other items you know belong to the same category. 
+
+Sometimes the app won't be able to find the item in other libraries at all. In those cases you have to generate the whole thing. Look in the [classification outline](https://www.loc.gov/catdir/cpso/lcco/) or find books with the same subject and then create the author and title codes using the tool on the right. 
+
+</div>
+
+### Generate author and tittle cutter codes {data-width=200}
+
+```{r cutter}
+textInput("text_to_code", "Insert author or title", "aldabra", width = "100%")
+
+
+renderUI({
+  list(
+    h5("If author: "), 
+    substr(get_cutter(input$text_to_code),1, 4),
+    h5 ("If title:"),
+    substr(get_cutter(input$text_to_code),1, 3)
+  )
+})
+
+```
 
 advanced {vertical_layout=scroll}
 =======================================================================
@@ -565,7 +620,7 @@ Row
 
 ### Location of the database file
 
-**Important** — Only modify this if you know what you are doing. For example if you are re-organising the files in the server.
+**Important** — Only modify this if you know what you are doing. For example if you are re-organizing the files in the server.
 
 ```{r}
 
@@ -585,5 +640,4 @@ observeEvent(input$changeDBlocation, {
 
 ```
 
-> sadasdas asdasd asdasd 
 
