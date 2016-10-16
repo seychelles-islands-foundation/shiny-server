@@ -1,12 +1,20 @@
-folder <- "./data/raw/tables"
+args <- commandArgs(trailingOnly = TRUE)
+
+folder <- dirname(args[1])
+out_file <- args[2]
 
 library(magrittr)
 library(dplyr)
-table_names <- list.files(folder) %>% stringr::str_sub(start = 4, end = -5)
 
-db <- list.files(folder, full.names = T) %>%
+message("Looking for files in ", folder)
+message("To write the file ", out_file)
+
+table_names <- list.files(folder, ".csv") %>% stringr::str_sub(start = 4, end = -5)
+
+db <- list.files(folder, ".csv", full.names = T) %>%
   lapply(readr::read_csv) %>% 
   `names<-`(table_names)
+
 
 for(i in 1:length(db)){
   fixed_names <- 
@@ -15,6 +23,8 @@ for(i in 1:length(db)){
                          replacement = paste(names(db)[i], "ID", sep = "_"))
   names(db[[i]]) <- fixed_names
 }
+
+message(names(db$FoodSecurityZone))
 
 db$FoodSecurityZone %<>%
   mutate(FSZ_Name = sub("\\..*$", "", FSZ_Name))
@@ -59,16 +69,16 @@ year_effort <- trip %>%
 trip %<>% 
   inner_join(month_effort) %>% 
   inner_join(year_effort) %>%
-  inner_join(db$FoodSecurityZone, by = c("LocationFSZ_ID" = "FoodSecurityZone_ID")) %>%
+  inner_join(db$FoodSecurityZone) %>%
   inner_join(db$FishCaught) %>% # Catch ID? Date Caught
   inner_join(db$Species) %>%
-  inner_join(db$FishUse, by = c("Fish_Use_ID" = "FishUse_ID")) %>% 
+  inner_join(db$FishUse) %>% 
   mutate(CalcWeight = Parameter_a * (Length ^ Parameter_b))
 
-saveRDS(trip, "./data/processed/fishing_global.rds")
+saveRDS(trip, out_file)
 
 parameters <- list()
 parameters$min_date <- min(trip$TripDate)
 parameters$max_date <- max(trip$TripDate)
 
-saveRDS(parameters, "./data/processed/parameters.rds")
+saveRDS(parameters, file.path(dirname(out_file), "parameters.rds"))

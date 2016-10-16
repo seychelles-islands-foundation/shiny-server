@@ -25,10 +25,11 @@ library(dplyr)
 
 ```{r global, include = FALSE}
 # read data
-fishing_zones <- readOGR("./gis", "fishing-zones")
+path_to_data <- readLines("./path_to_data")
+fishing_zones <- readOGR(file.path(path_to_data, "gis"), "fishing-zones")
 fishing_zones$zone_name <- paste("Zone", fishing_zones$zone_num)
-data <- readRDS("./data/processed/fishing_global.rds")
-parameters <- readRDS("./data/processed/parameters.rds")
+data <- readRDS(file.path(path_to_data, "fishing_global.rds"))
+parameters <- readRDS(file.path(path_to_data, "parameters.rds"))
 
 #functions
 tweaky_sum <- function(x){
