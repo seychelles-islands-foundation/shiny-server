@@ -5,6 +5,13 @@ out_file <- args[2]
 
 library(magrittr)
 library(dplyr)
+library(lubridate)
+
+mu_c <- function(.data, condition, ..., envir = parent.frame()) {
+	condition <- eval(substitute(condition), .data, envir)
+	.data[condition, ] <- .data[condition, ] %>% dplyr::mutate(...)
+	.data
+}
 
 message("Looking for files in ", folder)
 message("To write the file ", out_file)
@@ -38,13 +45,19 @@ db$Species %<>%
 
 db$Trip %<>%
   mutate(TripDate = as.POSIXct(TripDate, 
-                               format = "%d/%m/%y %H:%M",
+  														 format = "%d-%m-%Y %H:%M:%S",
                                tz = "Indian/Mahe"))
 
+
+today_at_midnight <- floor_date(as.POSIXct(as.POSIXlt(Sys.time(), tz = "Indian/Mahe"), tz = "Indian/Mahe"), "day")
+
 db$Session %<>%
+	mu_c(condition = !is.na(as.numeric(Start_Session)),
+			 Start_Session = format(today_at_midnight + as.numeric(Start_Session) * 3600 *24, "%d-%m-%Y %H:%M:%S"),
+			 End_Session = format(today_at_midnight + as.numeric(End_Session) * 3600 *24, "%d-%m-%Y %H:%M:%S")) %>%
   mutate_at(vars(Start_Session, End_Session),
             funs(as.POSIXct), 
-            format = "%d/%m/%Y %H:%M:%S",
+            format = "%d-%m-%Y %H:%M:%S",
             tz = "Indian/Mahe") %>%
   mutate(session_duration = as.numeric(difftime(End_Session, Start_Session, units = "hours")))
 
