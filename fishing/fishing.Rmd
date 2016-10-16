@@ -3,9 +3,9 @@ title: "SIF Aldabra Subsistence fishing"
 runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
-    theme: yeti
-    css: fishing.css
     orientation: rows
+    css: fishing.css
+    theme: yeti
     vertical_layout: fill
 ---
 
@@ -338,7 +338,7 @@ fish_location <- reactive({
 fish_zone <- reactive({
   zone_summary <- 
     fish_dates_method() %>%
-    mutate(zone_num = LocationFSZ_ID) %>%
+    mutate(zone_num = FoodSecurityZone_ID) %>%
     group_by(zone_num, Session_ID) %>%
     summarise(n_individuals = n(),
               biomass = sum(CalcWeight, na.rm = T), 
@@ -364,7 +364,7 @@ fish_zone <- reactive({
 ```
 
 
-graphs and tables {.tabset} 
+graphs and tables {.tabset}
 -----------------------------------------------------------------------
 
 ### On time 
@@ -425,7 +425,8 @@ create_pal <- function(x){
 }
   
 
-bootstrapPage(
+renderUI(
+	list(
   tags$style(type = "text/css", "html, body {width:100%;height:100%}"),
   absolutePanel(top = 0, right = "30%", bottom = 0, left = 0,
                 leafletOutput("map", width = "100%", height = "100%")),
@@ -439,7 +440,7 @@ bootstrapPage(
     # checkboxInput("view_locations", "Show zones", TRUE, width = "100%"),
     # checkboxInput("view_graph", "Show graph", TRUE, width = "100%"),
     plotlyOutput("barplot", height = "400px")
-  )
+  ))
 )
 
 output$map <- renderLeaflet({
@@ -466,8 +467,8 @@ observe({
     
     set.seed(1)
     d <- fish_location() %>%
-      rowwise() %>%
-      mutate_at(vars(lng, lat), funs(add_jitter), j = 0.004)
+      rowwise()# %>%
+     # mutate_at(vars(lng, lat), funs(add_jitter), j = 0.004)
     
       x <- fish_zone()@data %>%
         filter(zone_num %in% 1:6) %>%
@@ -538,20 +539,18 @@ output$barplot <- renderPlotly({
       geom_bar(aes(y = Var/1000, fill = col),stat = "identity") +
       ylab("Mean CPUE (kg / hrs / lines)")
   }
-    p +
+    p <- p +
       xlab("") +
       coord_flip() +
       scale_fill_gradient(low = "#fff5eb", high = "#d94801") +
       theme_bw() +
       theme(legend.position = "none")
-    ggplotly()
+    ggplotly(p)
 })
 
 ```
 
-> Click on the map features for more information. Location information is only available after September 2016. Reds and Blues correspond to demersal and pelagic species respectively. Squares within the Food Security Zones roughly correspond to an area o fone square kilometer.
-
-
+> Click on the map features for more information. Location information is only available after September 2016. Reds and Blues correspond to demersal and pelagic species respectively. Squares within the Food Security Zones roughly correspond to an area o fone square kilometer. Fishing Zone assignment is based on data entry declaration and not on the actual GPS fishing positions.
 
 ### Details
 
@@ -1193,6 +1192,10 @@ renderPlotly({
    if(input$decreassing_trend) {
      a %<>% filter(slope < 0)
    }
+   
+   validate(
+   	need(nrow(a) > 0, "No species with the desired criteria and meaningful catch data for the selected time period were found")
+   )
 
   p <- inner_join(fish_dates(), a) %>%
     filter(CalcWeight < 50000) %>%
@@ -1216,7 +1219,7 @@ renderPlotly({
     xlab("") + ylab("Fish size (kg)") +
     theme(legend.position = "none")
   
-  ggplotly(p, tooltip = c("species", "text"))
+  ggplotly(p, tooltip = c("colour", "text"))
 })
 ```
 
@@ -1278,6 +1281,10 @@ renderPlotly({
    if(input$decreassing_trend) {
      a %<>% filter(slope < 0)
    }
+   
+   validate(
+   	need(nrow(a) > 0, "No species with the desired criteria and meaningful catch data for the selected time period were found")
+   )
 
   p <- inner_join(fish_species_cpue(), a)%>%
     mutate(sig = p < 0.05, 
@@ -1298,7 +1305,7 @@ renderPlotly({
     xlab("") + ylab("CPUE") + 
     theme(legend.position = "none")
   
-  ggplotly(p, tooltip = c("species", "text"))
+  ggplotly(p, tooltip = c("colour", "text"))
 })
 ```
 
