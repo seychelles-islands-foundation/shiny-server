@@ -412,7 +412,7 @@ renderPlotly({
 })
 ```
 
-> Due to data gaps, effort statistics previous to 2010 are only approximate. Species biomass is estimated using in-house and published length-weight relationships
+> Effort statistics before and after September 2016 are not directly comparable due to changes in the resolution/accuracy of time spent and number of lines used when fishing. Species biomass is estimated using in-house and published length-weight relationships
 
 ### On space
 
@@ -747,7 +747,7 @@ renderPlotly({
   
   p <- p +
     geom_point() +
-    xlab("") + ylab("Consumption (gr / person / day)") +
+    xlab("") + ylab("Whole fish consumption (gr / person / day)") +
     theme_bw()
   
   ggplotly(p)
@@ -755,7 +755,7 @@ renderPlotly({
 
 ```
 
-> Fish consumption per capita is calculated based on an the estimated number of people in the island between two trips (a period). Punctual consumption estimates are highly variable and is reccomended to look at trends in a quarterly basis or longer. Trends are only available for five or more periods (six or more trips) within the selected dates
+> Fish consumption per capita is calculated based on an the estimated number of people in the island between two trips (a period). Values correspond to "whole fish" consumption (including guts and bones, however for most species only 40-60% of the fish weight is edible). Punctual consumption estimates are highly variable and is reccomended to look at trends in a quarterly basis or longer. Trends are only available for five or more periods (six or more trips) within the selected dates. 
 
 ## {data-width=300}
 
@@ -1056,6 +1056,12 @@ renderPlotly({
     # scale_x_discrete(labels = )
     theme(legend.position = "none", 
           axis.text.x = element_text(angle = 90))
+  
+  if (input$variable_to_display2 == "bio"){
+  	p <- p + ylab("Fished biomass (kg)")
+  } else {
+  	p <- p + ylab("Number of fish")
+  }
 
 ggplotly(p, tooltip = "text")
 })
@@ -1223,7 +1229,7 @@ renderPlotly({
 })
 ```
 
-> Species for wich less than ten individuals were caught during the study period are not included in the analysis. Reds and blues correspond to demersal and pelagic species respectively with darker shades corresponding to species caught most frequently. Estimates might be imprecise for species that can be caught during both bottom and trolling fishing.  
+> Species for which less than ten individuals were caught during the study period are not included in the analysis. Reds and blues correspond to demersal and pelagic species respectively with darker shades corresponding to species caught most frequently. Estimates might be imprecise for species that can be caught during both bottom and trolling fishing.  
 
 ### CPUE
 
@@ -1309,7 +1315,7 @@ renderPlotly({
 })
 ```
 
-> Species for wich less than ten individuals were caught during the study period are not included in the analysis. Reds and blues correspond to demersal and pelagic species respectively with darker shades corresponding to species caught most frequently. Estimates might be imprecise for species that can be caught during both bottom and trolling fishing.  
+> Species for which less than ten individuals were caught during the study period are not included in the analysis. Reds and blues correspond to demersal and pelagic species respectively with darker shades corresponding to species caught most frequently. Estimates might be imprecise for species that can be caught during both bottom and trolling fishing.  
 
 ## Review table {data-width=300}
 
@@ -1326,7 +1332,7 @@ renderDataTable({
   bind_rows(cpue, size) %>%
     filter(p <= input$significancy_level, 
            slope < 0) %>%
-    mutate(indicator = paste("Decreassing", indicator)) %>%
+    mutate(indicator = paste("Decreasing", indicator)) %>%
     arrange(English_names) %>%
     select(English_names, indicator) %>%
     rename(name = English_names, 
@@ -1348,4 +1354,4 @@ renderDataTable({
 })
 ```
 
-> Species included in this table have a significant decreassing trend in either size or catch per unit effort during the specified time period
+> Species included in this table have a significant decreasing trend in either size or catch per unit effort during the specified time period
