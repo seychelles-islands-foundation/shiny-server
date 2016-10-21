@@ -755,7 +755,7 @@ renderPlotly({
 
 ```
 
-> Fish consumption per capita is calculated based on an the estimated number of people in the island between two trips (a period). Values correspond to "whole fish" consumption (including guts and bones, however for most species only 40-60% of the fish weight is edible). Punctual consumption estimates are highly variable and is reccomended to look at trends in a quarterly basis or longer. Trends are only available for five or more periods (six or more trips) within the selected dates. 
+> Fish consumption per capita is calculated based on an the estimated number of people in the island between two trips (a period). Values correspond to "whole fish" consumption (including guts and bones, however for most species only 40-60% of the fish weight is edible). Punctual consumption estimates are highly variable and is reccomended to look at trends in a quarterly basis or longer. Trends are only available for five or more periods (six or more trips) within the selected dates. Estimates only include monitored fishing (not obtained trough confiscation or on crossings) 
 
 ## {data-width=300}
 
@@ -1148,7 +1148,7 @@ checkboxInput(inputId = "decreassing_trend",
                    label = "species with decreasing trend")
 
 sliderInput(inputId = "significancy_level",
-            label = h5("Significancy level"), 
+            label = list(h5("Significancy level"), "Thick lines indicate significant trends over time. Increase the alpha-value for greater sensitivity."), 
             min = 0.01, 
             max = 0.1, 
             value = 0.05,
@@ -1223,7 +1223,8 @@ renderPlotly({
     scale_size_manual(values = c(1, 0.3)) +
     theme_bw() +
     xlab("") + ylab("Fish size (kg)") +
-    theme(legend.position = "none")
+    theme(legend.position = "none") + 
+  	ggtitle("Trends of fish size")
   
   ggplotly(p, tooltip = c("colour", "text"))
 })
@@ -1309,7 +1310,8 @@ renderPlotly({
     scale_size_manual(values = c(1, 0.3)) +
     theme_bw() +
     xlab("") + ylab("CPUE") + 
-    theme(legend.position = "none")
+    theme(legend.position = "none") + 
+  	ggtitle("Trends of catch per unit effort")
   
   ggplotly(p, tooltip = c("colour", "text"))
 })
