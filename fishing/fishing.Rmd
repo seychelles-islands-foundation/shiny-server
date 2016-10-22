@@ -562,15 +562,15 @@ renderDataTable(
       kg = round(CalcWeight/1000, 1), 
       method = sub("\\s.+$", "", Fishing_method)) %>%
     rename(zone = FSZ_Name, 
-           depth_m = DepthCaught, 
+           dpt = DepthCaught, 
            name = English_names, 
-           sci_name = Scientific_names) %>%
+           sci_name = sci_name_short) %>%
     select(date, 
            name, 
-           # sci_name,
+           sci_name,
            kg,
            method,
-           depth_m,
+           dpt,
            zone) %>%
     datatable(#style = "bootstrap", 
               extensions = c('Buttons', "Scroller"),
@@ -879,7 +879,7 @@ renderDataTable(
            use = FishUse) %>%
     select(date, 
            name, 
-           # sci_name,
+           sci_name,
            kg,
            method,
            depth,
