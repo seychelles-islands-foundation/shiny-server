@@ -1,6 +1,6 @@
 ---
 title: "Aldabra application platform"
-author: v0.4.1
+author: v0.4.2
 output: 
   flexdashboard::flex_dashboard:
     theme: yeti
