@@ -1,0 +1,49 @@
+---
+title: "Aldabra application platform"
+author: v0.4.1
+output: 
+  flexdashboard::flex_dashboard:
+    theme: yeti
+    logo: logo.png
+    css: index-style.css
+    orientation: columns
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+
+Environmental
+-------------------------------------
+
+### Environmental
+
+```{r}
+valueBox(value = 'tides', 
+         caption = 'Visualise aldabra tides, produce a tidal calendar, or download research grade predicted tidal heights',
+         icon = "ion-waterdrop", href="/aldabratides/", color = '#ffffff')
+```
+
+### Library
+
+```{r}
+valueBox(value = 'library', 
+         caption = 'Browse the contents of the Alrabra library, add new items, and export the collection to Excel or Zotero',
+         icon = "ion-ios-book", href="/aldabralibrary/", color = '#ffffff')
+```
+
+Column
+-------------------------------------
+
+### Fishing
+
+```{r}
+valueBox(value = 'fishing', 
+         caption = 'Explore the subsistence fishing database, get sustainability and adaptive management indicators.',
+         icon = "fa-ship", href="/fishing/", color = '#ffffff')
+```
+
+Column
+-------------------------------------
+
